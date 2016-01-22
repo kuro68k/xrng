@@ -6,6 +6,12 @@
 *.user
 *.userosscache
 *.sln.docstates
+*.filters
+
+windows/Win7Debug
+windows/x64
+windows/xrng/Win7Debug
+windows/xrng/x64
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -279,3 +285,6 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+*.atsuo
+*.exe
+windows/xrng Package/xrng Package.vcxproj.filters
