@@ -36,7 +36,7 @@ void RNG_init(void)
 	while (RTC.STATUS & RTC_SYNCBUSY_bm);
 	RTC.PER = 1;
 	RTC.CNT = 0;
-	RTC.INTCTRL = RTC_OVFINTLVL_LO_gc;
+	//RTC.INTCTRL = RTC_OVFINTLVL_LO_gc;
 	RTC.CTRL = RTC_PRESCALER_DIV1_gc;
 	
 	FAST_TC.CTRLA = 0;
@@ -52,26 +52,29 @@ void RNG_init(void)
 	ADCA.CTRLB = ADC_FREERUN_bm | ADC_RESOLUTION_12BIT_gc;
 	ADCA.REFCTRL = ADC_REFSEL_INTVCC_gc | ADC_TEMPREF_bm;
 	ADCA.EVCTRL = 0;
-	ADCA.PRESCALER = ADC_PRESCALER_DIV512_gc;				// as fast and as noisy as possible
+	ADCA.PRESCALER = ADC_PRESCALER_DIV16_gc;			// as fast and as noisy as possible
 	
 	// temperature sensor
 	ADCA.CH0.CTRL = ADC_CH_GAIN_1X_gc | ADC_CH_INPUTMODE_INTERNAL_gc;
 	ADCA.CH0.MUXCTRL = ADC_CH_MUXINT_TEMP_gc;
-	ADCA.CH0.INTCTRL = ADC_CH_INTMODE_COMPLETE_gc | ADC_CH_INTLVL_LO_gc;
-	ADCA.CH0.CTRL |= ADC_CH_START_bm;
+	//ADCA.CH0.INTCTRL = ADC_CH_INTMODE_COMPLETE_gc | ADC_CH_INTLVL_LO_gc;
+	//ADCA.CH0.CTRL |= ADC_CH_START_bm;
 	
 	// ADCB
 	ADCB.CTRLA = ADC_ENABLE_bm;
 	ADCB.CTRLB = ADC_FREERUN_bm | ADC_RESOLUTION_12BIT_gc;
 	ADCB.REFCTRL = ADC_REFSEL_INTVCC_gc | ADC_TEMPREF_bm;
 	ADCB.EVCTRL = 0;
-	ADCB.PRESCALER = ADC_PRESCALER_DIV512_gc;				// as fast and as noisy as possible
+	ADCB.PRESCALER = ADC_PRESCALER_DIV16_gc;			// as fast and as noisy as possible
 	
 	// VCC/10
 	ADCB.CH0.CTRL = ADC_CH_GAIN_4X_gc | ADC_CH_INPUTMODE_INTERNAL_gc;
 	ADCB.CH0.MUXCTRL = ADC_CH_MUXINT_SCALEDVCC_gc;
-	ADCB.CH0.INTCTRL = ADC_CH_INTMODE_COMPLETE_gc | ADC_CH_INTLVL_LO_gc;
-	ADCB.CH0.CTRL |= ADC_CH_START_bm;
+	//ADCB.CH0.INTCTRL = ADC_CH_INTMODE_COMPLETE_gc | ADC_CH_INTLVL_LO_gc;
+	//ADCB.CH0.CTRL |= ADC_CH_START_bm;
+	
+	// CRC peripheral
+	CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_IO_gc;
 }
 
 /**************************************************************************************************
@@ -177,31 +180,89 @@ ISR(ADCB_CH0_vect)
 */
 void RND_get_buffer64(uint8_t *buf)
 {
-	//uint8_t cycles = 4;
-
-	//while (ent_bytes < 80)
-	//	sleep_cpu();
-	//ent_bytes = 0;
-/*
-	for (uint8_t i = 0; i < 16; i++)
-		AES.KEY = entropy[ent_read_head++];
-
-	while(cycles--)
+	uint8_t byte_count = 0;
+	uint8_t white_bits = 0;
+	uint8_t white_byte = 0;
+	uint8_t	new_bits = 0;
+	uint8_t	nu = 0;
+	
+	WDR();
+	
+	for(;;)
 	{
-		//while (!(AES.STATUS & AES_SRIF_bm));
-		
-		for (uint8_t i = 0; i < 16; i++)
-			buf[i] = AES.STATE;
-		
-		for (uint8_t i = 0; i < 16; i++)
-			AES.STATE = entropy[ent_read_head++];
-		
-		AES.CTRL = AES_START_bm | AES_XOR_bm;
-		while (!(AES.STATUS & AES_SRIF_bm));
-	}
+		if (ADCA.INTFLAGS & ADC_CH0IF_bm)
+		{
+			nu <<= 1;
+			nu |= ADCA.CH0.RESL & 1;
+			ADCA.INTFLAGS = ADC_CH0IF_bm;	// clear bit
+			new_bits++;
+		}
 
-	buf[1] = ent_bytes;
-	buf[0] = 0x55;
+		if (ADCB.INTFLAGS & ADC_CH0IF_bm)
+		{
+			nu <<= 1;
+			nu |= ADCB.CH0.RESL & 1;
+			ADCB.INTFLAGS = ADC_CH0IF_bm;	// clear bit
+			new_bits++;
+		}
+/*
+		if (new_bits >= 8)
+		{
+			new_bits = 0;
+			*buf++ = nu;
+			byte_count++;
+			if (byte_count > 63)
+				return;
+		}
 */
-	memcpy(buf, (void *)entropy, 64);
+
+		while (new_bits > 0)
+		{
+			new_bits--;
+
+			white_byte <<= 1;
+			white_byte |= nu & 1;
+			nu >>= 1;
+			white_bits++;
+
+			if (white_bits >= 8)
+			{
+				white_bits = 0;
+				CRC.DATAIN = white_byte;	// CRC32 whitening
+				*buf++ = CRC.CHECKSUM0;
+				//*buf++ = white_byte;
+				byte_count++;
+				if (byte_count > 63)
+					return;
+			}
+		}
+
+/*
+		// von neumann whitening
+		//if (new_bits > 2)
+		while (new_bits > 2)
+		{
+			new_bits -= 2;
+			
+			uint8_t b = nu & 0b11;
+			nu >>= 2;
+			if ((b != 0b00) & (b != 0b11))
+			{
+				white_byte <<= 1;
+				white_byte |= b & 1;
+				white_bits++;
+				if (white_bits > 8)
+				{
+					CRC.DATAIN = white_byte;	// CRC32 whitening
+					*buf++ = CRC.CHECKSUM0;
+					//*buf++ = white_byte;
+					byte_count++;
+					if (byte_count > 63)
+						return;
+					white_bits = 0;
+				}
+			}
+		}
+*/
+	}
 }

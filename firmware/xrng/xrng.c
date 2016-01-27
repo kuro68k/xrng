@@ -57,6 +57,7 @@ volatile uint8_t transfer_complete = 0xFF;
 void main_vendor_bulk_in_received(udd_ep_status_t status, iram_size_t nb_transfered, udd_ep_id_t ep)
 {
 	//transfer_complete = 0xFF;
+	RND_get_buffer64(buffer_a);
 	udi_vendor_bulk_in_run(buffer_a, 64, main_vendor_bulk_in_received);
 }
 

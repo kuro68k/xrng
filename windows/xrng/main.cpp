@@ -169,7 +169,7 @@ LONG __cdecl _tmain(LONG Argc, LPTSTR *Argv)
 		}
 	}
 	*/
-
+	/*
 	time_t tick = clock() + CLOCKS_PER_SEC;
 	ULONG bytes = 0;
 	while (!_kbhit())
@@ -192,6 +192,55 @@ LONG __cdecl _tmain(LONG Argc, LPTSTR *Argv)
 			}
 		}
 	}
+	*/
+
+	FILE *fp;
+	fp = fopen("rand.out", "wb");
+	if (fp == NULL)
+	{
+		printf("Unable to write rand.out.\n");
+		CloseDevice(&deviceData);
+		return -1;
+	}
+
+	
+	time_t tick = clock() + CLOCKS_PER_SEC;
+	ULONG bytes = 0;
+	ULONG discard = (1024 * 16);
+	while (bytes < (1024*1024))
+	//for (int i = 0; i < 16384; i++)
+	{
+		ULONG cbRead = 0;
+		if (!WinUsb_ReadPipe(deviceData.WinusbHandle, inPipe, (PUCHAR)buffer, cbSize, &cbRead, 0))
+		{
+			printf("Read from pipe failed.\n");
+			return -1;
+		}
+		else
+		{
+			if (discard == 0)
+			{
+				fwrite(buffer, cbRead, 1, fp);
+				bytes += cbRead;
+			}
+			else
+			{
+				if (discard >= cbRead)
+					discard -= cbRead;
+				else
+					discard = 0;
+			}
+		}
+
+		time_t now = clock();
+		if (now >= tick)
+		{
+			//printf(".");
+			printf("%u\n", bytes);
+			tick = now + CLOCKS_PER_SEC;
+		}
+	}
+	printf("\n");
 
 	CloseDevice(&deviceData);
 	return 0;

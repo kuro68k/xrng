@@ -288,3 +288,4 @@ $RECYCLE.BIN/
 *.atsuo
 *.exe
 windows/xrng Package/xrng Package.vcxproj.filters
+*.out
