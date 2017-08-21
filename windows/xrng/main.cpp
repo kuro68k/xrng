@@ -148,6 +148,8 @@ LONG __cdecl _tmain(LONG Argc, LPTSTR *Argv)
 		return 0;
 	}
 
+	printf("Any key to stop...\n");
+
 	UINT8 buffer[64];
 	ULONG cbSize = sizeof(buffer);
 	/*
@@ -169,7 +171,7 @@ LONG __cdecl _tmain(LONG Argc, LPTSTR *Argv)
 		}
 	}
 	*/
-	/*
+	
 	time_t tick = clock() + CLOCKS_PER_SEC;
 	ULONG bytes = 0;
 	while (!_kbhit())
@@ -187,12 +189,16 @@ LONG __cdecl _tmain(LONG Argc, LPTSTR *Argv)
 			if (now >= tick)
 			{
 				tick = now + CLOCKS_PER_SEC;
-				printf("%lu\n", bytes);
+				//double megabytes = (double)bytes / (1024 * 1024);
+				double megabits = ((double)bytes * 8) / (1024 * 1024);
+				//printf("%luB\t%03lfMB\t%03lf Mb\n", bytes, megabytes, megabits);
+				printf("%lu B\t%.03lf Mb\n", bytes, megabits);
 				bytes = 0;
 			}
 		}
 	}
-	*/
+
+	if (1) return 0;
 
 	FILE *fp;
 	fp = fopen("rand.out", "wb");
@@ -204,10 +210,12 @@ LONG __cdecl _tmain(LONG Argc, LPTSTR *Argv)
 	}
 
 	
-	time_t tick = clock() + CLOCKS_PER_SEC;
-	ULONG bytes = 0;
+	//time_t tick = clock() + CLOCKS_PER_SEC;
+	//ULONG bytes = 0;
+	tick = clock() + CLOCKS_PER_SEC;
+	bytes = 0;
 	ULONG discard = (1024 * 16);
-	while (bytes < (1024*1024))
+	while (bytes < (1024*1024*1000))
 	//for (int i = 0; i < 16384; i++)
 	{
 		ULONG cbRead = 0;
@@ -236,7 +244,7 @@ LONG __cdecl _tmain(LONG Argc, LPTSTR *Argv)
 		if (now >= tick)
 		{
 			//printf(".");
-			printf("%u\n", bytes);
+			printf("%u k\n", bytes / 1024);
 			tick = now + CLOCKS_PER_SEC;
 		}
 	}

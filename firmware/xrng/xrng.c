@@ -82,8 +82,16 @@ int main(void)
 	udc_start();
 	udc_attach();
 
-	udi_vendor_bulk_in_run(buffer_a, 64, main_vendor_bulk_in_received);
+	//udi_vendor_bulk_in_run(buffer_a, 64, main_vendor_bulk_in_received);
+	//for(;;);
+	
 	for(;;)
+	{
+		WDR();
+		RND_get_buffer64(buffer_a);
+		while(!udi_vendor_bulk_in_run(buffer_a, 64, NULL))
+			WDR();
+	}
 
 	for(;;)
 	{
