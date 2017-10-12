@@ -176,7 +176,6 @@ USB_Speed usb_get_speed() { return USB_SPEED_FULL; }
 void usb_configure_clock() {
 #ifdef USB_USE_PLL
 	OSC.XOSCCTRL = OSC_FRQRANGE_12TO16_gc | OSC_XOSCSEL_XTAL_16KCLK_gc;
-	//CCP = CCP_IOREG_gc; //Security Signature to modify clock
     OSC.CTRL |= OSC_XOSCEN_bm;
 	while(!(OSC.STATUS & OSC_XOSCRDY_bm));
 
@@ -184,10 +183,14 @@ void usb_configure_clock() {
 	OSC.CTRL |= OSC_PLLEN_bm;
 	while(!(OSC.STATUS & OSC_PLLRDY_bm));
 
-	CCPWrite(&CLK.PSCTRL, CLK_PSADIV_2_gc | CLK_PSBCDIV_1_1_gc);	// 24MHz CPU clock
-	CCPWrite(&CLK.CTRL, CLK_SCLKSEL_PLL_gc);
+    OSC.CTRL |= OSC_RC32MEN_bm;					// 32MHz for CPU
+	while(!(OSC.STATUS & OSC_RC32MRDY_bm));
 
-	OSC.CTRL = OSC_XOSCEN_bm | OSC_PLLEN_bm;	// disable other clocks
+
+	CCPWrite(&CLK.PSCTRL, CLK_PSADIV_1_gc | CLK_PSBCDIV_1_1_gc);	// 32MHz CPU clock
+	CCPWrite(&CLK.CTRL, CLK_SCLKSEL_RC32M_gc);
+
+	OSC.CTRL = OSC_RC32MEN_bm | OSC_XOSCEN_bm | OSC_PLLEN_bm;	// disable other clocks
 #endif
 
 #ifdef USB_USE_RC32
