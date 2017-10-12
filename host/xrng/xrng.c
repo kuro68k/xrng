@@ -10,7 +10,7 @@
 #include "libusb.h"
 
 
-#define BUFFER_SIZE			8196
+#define BUFFER_SIZE			8192
 #define	DEFAULT_TIMEOUT_MS	100
 #define	EP_BULK_IN			0x81
 #define	EP_BULK_OUT			0x02
@@ -57,7 +57,10 @@ int main(int argc, char* argv[])
 	int rx;
 	uint8_t buffer[BUFFER_SIZE];
 	ULONG bytes = 0;
+	ULONG bytes_per_second = 0;
 	time_t tick = clock() + CLOCKS_PER_SEC;
+	int discard = 1;
+	FILE *fp = fopen("rng.dat", "w");
 
 	while (!_kbhit())
 	{
@@ -75,18 +78,27 @@ int main(int argc, char* argv[])
 			goto exit;
 		}
 
-		//printf(".");
-		bytes += rx;
-		time_t now = clock();
-		if (now >= tick)
+		if (discard > 0)
+			discard--;
+		else
 		{
-			tick = now + CLOCKS_PER_SEC;
-			double megabits = ((double)bytes * 8) / (1024 * 1024);
-			printf("%lu B\t%.03lf Mb\n", bytes, megabits);
-			bytes = 0;
+			bytes += rx;
+			bytes_per_second += rx;
+			fwrite(buffer, sizeof(buffer), 1, fp);
+
+			time_t now = clock();
+			if (now >= tick)
+			{
+				tick = now + CLOCKS_PER_SEC;
+				double megabits = ((double)bytes_per_second * 8) / (1024 * 1024);
+				double megabytes = (double)bytes / (1024 * 1024);
+				printf("%.03lf MB\t%.03lf Mb/s\n", megabytes, megabits);
+				bytes_per_second = 0;
+			}
 		}
 	}
 
+	fclose(fp);
 	libusb_release_interface(dev, 0);
 
 	res = 0;
